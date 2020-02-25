@@ -139,7 +139,7 @@ func nodeType(interp *Interpreter, sc *scope, n *node) (*itype, error) {
 		}
 	}
 
-	var err cfgError
+	var err error
 	switch n.kind {
 	case addressExpr, starExpr:
 		t.cat = ptrT
@@ -431,6 +431,9 @@ func nodeType(interp *Interpreter, sc *scope, n *node) (*itype, error) {
 			}
 		}
 
+	case landExpr, lorExpr:
+		t.cat = boolT
+
 	case mapType:
 		t.cat = mapT
 		if t.key, err = nodeType(interp, sc, n.child[0]); err != nil {
@@ -611,7 +614,7 @@ func init() {
 
 // if type is incomplete, re-parse it.
 func (t *itype) finalize() (*itype, error) {
-	var err cfgError
+	var err error
 	if t.incomplete {
 		sym, _, found := t.scope.lookup(t.name)
 		if found && !sym.typ.incomplete {
@@ -1014,7 +1017,12 @@ func isInterface(t *itype) bool {
 func isStruct(t *itype) bool {
 	// Test first for a struct category, because a recursive interpreter struct may be
 	// represented by an interface{} at reflect level.
-	return t.cat == structT || t.TypeOf().Kind() == reflect.Struct
+	if t.cat == structT {
+		return true
+	}
+	rt := t.TypeOf()
+	k := rt.Kind()
+	return k == reflect.Struct || (k == reflect.Ptr && rt.Elem().Kind() == reflect.Struct)
 }
 
 func isBool(t *itype) bool { return t.TypeOf().Kind() == reflect.Bool }
